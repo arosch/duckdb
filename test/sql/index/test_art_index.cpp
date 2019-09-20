@@ -1091,6 +1091,72 @@ TEST_CASE("ART Node 48", "[art]") {
 	REQUIRE_NO_FAIL(con.Query("DROP INDEX i_index"));
 	REQUIRE_NO_FAIL(con.Query("DROP TABLE integers"));
 }
+std::string random_string( size_t length )
+{
+    auto randchar = []() -> char
+    {
+      const char charset[] =
+          "0123456789"
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+          "abcdefghijklmnopqrstuvwxyz";
+      const size_t max_index = (sizeof(charset) - 1);
+      return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
+}
+
+TEST_CASE("ART Strings", "[art-s]") {
+    unique_ptr<QueryResult> result;
+    DuckDB db(nullptr);
+
+    Connection con(db);
+
+    REQUIRE_NO_FAIL(con.Query("CREATE TABLE test(i varchar)"));
+    index_t n = 20;
+    auto keys = unique_ptr<int32_t[]>(new int32_t[n]);
+    for (index_t i = 0; i < n; i++) {
+        keys[i] = i + 1;
+    }
+    int64_t expected_sum = 0;
+    for (index_t i = 0; i < n; i++) {
+        REQUIRE_NO_FAIL(con.Query("INSERT INTO test VALUES ($1)", keys[i]));
+        expected_sum += keys[i];
+    }
+    REQUIRE_NO_FAIL(con.Query("CREATE INDEX i_index ON test(i)"));
+    for (index_t i = 0; i < n; i++) {
+        result = con.Query("SELECT i FROM test WHERE i=$1", keys[i]);
+        REQUIRE(CHECK_COLUMN(result, 0, {Value(to_string(keys[i]))}));
+    }
+
+    for (index_t i = 0; i < n; i++) {
+        REQUIRE_NO_FAIL(con.Query("DELETE FROM test WHERE i=$1", keys[i]));
+    }
+
+    REQUIRE_NO_FAIL(con.Query("INSERT INTO test VALUES  (\'tstring\') "));
+    result = con.Query("SELECT i FROM test WHERE i=\'tstring\'");
+    REQUIRE(CHECK_COLUMN(result, 0, {Value("tstring")}));
+
+    //! Inserting a big string and multiple smaller strings
+    vector<string> insertStrings;
+    insertStrings.push_back(random_string(1000));
+    for (size_t i = 1; i <= 1000; i ++){
+        insertStrings.push_back(random_string(i));
+        insertStrings.push_back(random_string(i));
+        insertStrings.push_back(random_string(i));
+    }
+    for (size_t i = 0; i < insertStrings.size(); i ++){
+        REQUIRE_NO_FAIL(con.Query("INSERT INTO test VALUES  (\'" + insertStrings[i]+ "\') "));
+    }
+    for (size_t i = 0; i < insertStrings.size(); i ++){
+        result = con.Query("SELECT i FROM test WHERE i=\'" + insertStrings[i]+ "\'");
+        REQUIRE(CHECK_COLUMN(result, 0, {Value(insertStrings[i])}));
+    }
+
+    REQUIRE_NO_FAIL(con.Query("DROP INDEX i_index"));
+    REQUIRE_NO_FAIL(con.Query("DROP TABLE test"));
+}
 
 TEST_CASE("Index Exceptions", "[art]") {
 	unique_ptr<QueryResult> result;

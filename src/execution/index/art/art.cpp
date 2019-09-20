@@ -3,9 +3,12 @@
 #include "common/vector_operations/vector_operations.hpp"
 #include "main/client_context.hpp"
 #include <algorithm>
+#include <locale>
 
 using namespace duckdb;
 using namespace std;
+
+
 
 ART::ART(DataTable &table, vector<column_t> column_ids, vector<unique_ptr<Expression>> unbound_expressions,
          bool is_unique)
@@ -35,6 +38,9 @@ ART::ART(DataTable &table, vector<column_t> column_ids, vector<unique_ptr<Expres
 	case TypeId::BIGINT:
 		maxPrefix = sizeof(int64_t);
 		break;
+    case TypeId::VARCHAR:
+        maxPrefix = sizeof(char);
+        break;
 	default:
 		throw InvalidTypeException(types[0], "Invalid type for index");
 	}
@@ -94,6 +100,7 @@ void ART::GenerateKeys(DataChunk &input, vector<unique_ptr<Key>> &keys) {
 
 	switch (input.data[0].type) {
 	case TypeId::TINYINT:
+    case TypeId::VARCHAR:
 		generate_keys<int8_t>(input, keys, is_little_endian);
 		break;
 	case TypeId::SMALLINT:
@@ -317,6 +324,7 @@ static unique_ptr<Key> CreateKey(ART &art, TypeId type, Value &value) {
 	assert(type == value.type);
 	switch (type) {
 	case TypeId::TINYINT:
+    case TypeId::VARCHAR:
 		return Key::CreateKey<int8_t>(value.value_.tinyint, art.is_little_endian);
 	case TypeId::SMALLINT:
 		return Key::CreateKey<int16_t>(value.value_.smallint, art.is_little_endian);
