@@ -6,6 +6,8 @@
 #include "storage/storage_manager.hpp"
 #include "transaction/transaction_manager.hpp"
 
+#include <thread>
+
 using namespace duckdb;
 using namespace std;
 
@@ -50,4 +52,15 @@ void DuckDB::Configure(DBConfig &config) {
 	checkpoint_only = config.checkpoint_only;
 	checkpoint_wal_size = config.checkpoint_wal_size;
 	use_direct_io = config.use_direct_io;
+
+	if (config.n_worker_threads < 1) {
+		auto nthreads_detect = std::thread::hardware_concurrency();
+		if (nthreads_detect < 1) {
+			// TODO warning
+
+			// TODO is this a sensible default?
+			nthreads_detect = 1;
+		}
+		config.n_worker_threads = nthreads_detect;
+	}
 }

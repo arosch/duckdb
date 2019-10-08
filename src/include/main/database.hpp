@@ -38,6 +38,9 @@ public:
 	//! RamFS or something similar)
 	unique_ptr<FileSystem> file_system;
 
+	//! Number of worker threads, 0 = autodetect
+	index_t n_worker_threads = 0;
+
 private:
 	// FIXME: don't set this as a user: used internally (only for now)
 	bool checkpoint_only = false;
