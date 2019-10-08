@@ -66,6 +66,7 @@ public:
 	bool use_direct_io;
 	bool checkpoint_only;
 	index_t checkpoint_wal_size;
+	index_t n_worker_threads;
 
 private:
 	void Configure(DBConfig &config);

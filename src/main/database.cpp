@@ -63,4 +63,5 @@ void DuckDB::Configure(DBConfig &config) {
 		}
 		config.n_worker_threads = nthreads_detect;
 	}
+	n_worker_threads = config.n_worker_threads;
 }
