@@ -10,6 +10,7 @@ add_library_unity(duckdb_expression
                   function_expression.cpp
                   operator_expression.cpp
                   parameter_expression.cpp
+                  qualifying_expression.cpp
                   star_expression.cpp
                   subquery_expression.cpp
                   window_expression.cpp)

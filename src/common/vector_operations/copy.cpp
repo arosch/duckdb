@@ -19,6 +19,13 @@ static void copy_function(T *__restrict source, T *__restrict target, index_t of
 }
 
 template <class T>
+static void copy_function_array(T *__restrict source, T *__restrict target, index_t offset, index_t count,
+                          sel_t *__restrict sel_vector) {
+    VectorOperations::Exec(
+            sel_vector, count + offset, [&](index_t i, index_t k) { memcpy(target[k - offset], source[i], sizeof(T)); }, offset);
+}
+
+template <class T>
 static void copy_function_set_null(T *__restrict source, T *__restrict target, index_t offset, index_t count,
                                    sel_t *__restrict sel_vector, nullmask_t &nullmask) {
 	if (nullmask.any()) {
@@ -39,6 +46,27 @@ static void copy_function_set_null(T *__restrict source, T *__restrict target, i
 	}
 }
 
+template <class T>
+static void copy_function_array_set_null(T *__restrict source, T *__restrict target, index_t offset, index_t count,
+                                   sel_t *__restrict sel_vector, nullmask_t &nullmask) {
+    if (nullmask.any()) {
+        // null values, have to check the NULL values in the mask
+        VectorOperations::Exec(
+                sel_vector, count + offset,
+                [&](index_t i, index_t k) {
+                    if (nullmask[i]) {
+                        memset(target[k - offset], 0, sizeof(T));
+                    } else {
+                        memcpy(target[k - offset], source[i], sizeof(T));
+                    }
+                },
+                offset);
+    } else {
+        // no NULL values, use normal copy
+        copy_function_array(source, target, offset, count, sel_vector);
+    }
+}
+
 template <class T, bool SET_NULL>
 static void copy_loop(Vector &input, void *target, index_t offset, index_t element_count) {
 	auto ldata = (T *)input.data;
@@ -48,6 +76,17 @@ static void copy_loop(Vector &input, void *target, index_t offset, index_t eleme
 	} else {
 		copy_function(ldata, result_data, offset, element_count, input.sel_vector);
 	}
+}
+
+template <class T, bool SET_NULL>
+static void copy_loop_array(Vector &input, void *target, index_t offset, index_t element_count) {
+    auto ldata = (T *)input.data;
+    auto result_data = (T *)target;
+    if (SET_NULL) {
+        copy_function_array_set_null(ldata, result_data, offset, element_count, input.sel_vector, input.nullmask);
+    } else {
+        copy_function_array(ldata, result_data, offset, element_count, input.sel_vector);
+    }
 }
 
 template <bool SET_NULL> void generic_copy_loop(Vector &source, void *target, index_t offset, index_t element_count) {
@@ -87,6 +126,9 @@ template <bool SET_NULL> void generic_copy_loop(Vector &source, void *target, in
 	case TypeId::VARCHAR:
 		copy_loop<const char *, SET_NULL>(source, target, offset, element_count);
 		break;
+    case TypeId::SHA:
+        copy_loop_array<sha_t, SET_NULL>(source, target, offset, element_count);
+        break;
 	default:
 		throw NotImplementedException("Unimplemented type for copy");
 	}

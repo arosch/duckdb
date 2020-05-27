@@ -34,7 +34,7 @@ PhysicalHashAggregate::PhysicalHashAggregate(vector<TypeId> types, vector<unique
 }
 
 void PhysicalHashAggregate::GetChunkInternal(ClientContext &context, DataChunk &chunk, PhysicalOperatorState *state_) {
-	auto state = reinterpret_cast<PhysicalHashAggregateOperatorState *>(state_);
+    auto state = reinterpret_cast<PhysicalHashAggregateOperatorState *>(state_);
 	do {
 		if (children.size() > 0) {
 			// resolve the child chunk if there is one
@@ -77,7 +77,6 @@ void PhysicalHashAggregate::GetChunkInternal(ClientContext &context, DataChunk &
 		state->ht->AddChunk(group_chunk, payload_chunk);
 		state->tuples_scanned += state->child_chunk.size();
 	} while (state->child_chunk.size() > 0);
-
 	state->group_chunk.Reset();
 	state->aggregate_chunk.Reset();
 	index_t elements_found = state->ht->Scan(state->ht_scan_position, state->group_chunk, state->aggregate_chunk);

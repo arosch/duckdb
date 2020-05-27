@@ -109,6 +109,26 @@ template <class T, bool IGNORE_NULL> static void scatter_set_loop(Vector &source
 	}
 }
 
+template <class T, bool IGNORE_NULL> static void scatter_set_array_loop(Vector &source, data_ptr_t dest[], index_t offset) {
+    auto data = (T *)source.data;
+    if (IGNORE_NULL || !source.nullmask.any()) {
+        VectorOperations::Exec(source, [&](index_t i, index_t k) {
+            auto destination = (T *)(dest[i] + offset);
+            memcpy(*destination, data[i], sizeof(T));
+        });
+    } else {
+        VectorOperations::Exec(source, [&](index_t i, index_t k) {
+            auto destination = (T *)(dest[i] + offset);
+            if (source.nullmask[i]) {
+                //TODO implement with NullValue
+                memset(*destination, '0', sizeof(T));
+            } else {
+                memcpy(*destination, data[i], sizeof(T));
+            }
+        });
+    }
+}
+
 template <bool IGNORE_NULL = false>
 static void scatter_set_all_loop(Vector &source, data_ptr_t dest[], index_t offset) {
 	switch (source.type) {
@@ -134,6 +154,12 @@ static void scatter_set_all_loop(Vector &source, data_ptr_t dest[], index_t offs
 	case TypeId::VARCHAR:
 		scatter_set_loop<const char *, IGNORE_NULL>(source, dest, offset);
 		break;
+    case TypeId::SHA:
+        scatter_set_array_loop<sha_t, IGNORE_NULL>(source, dest, offset);
+        break;
+    case TypeId::INTEGERARRAY:
+        scatter_set_loop<int32_t *, IGNORE_NULL>(source, dest, offset);
+        break;
 	default:
 		throw NotImplementedException("Unimplemented type for scatter");
 	}

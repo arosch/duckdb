@@ -138,6 +138,11 @@ TEST_CASE("Test STRING_AGG operator", "[aggregate]") {
 	// numerics are auto cast to strings
 	result = con.Query("SELECT STRING_AGG(1, 2)");
 	REQUIRE(CHECK_COLUMN(result, 0, {"1"}));
+
+	// test string aggregation with joined tables
+    result = con.Query("WITH qualifying_strings as (SELECT DISTINCT g FROM strings) SELECT qs.g, STRING_AGG (s.x, ',') FROM qualifying_strings qs, strings s WHERE qs.g = s.g GROUP BY qs.g");
+    REQUIRE(CHECK_COLUMN(result, 0, {"1","4","2","3"}));
+    REQUIRE(CHECK_COLUMN(result, 1, {"b,a","z,y,x","j,i","p"}));
 }
 
 TEST_CASE("Test AVG operator", "[aggregate]") {

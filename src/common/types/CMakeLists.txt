@@ -5,6 +5,7 @@ add_library(duckdb_common_types OBJECT
             hash.cpp
             hyperloglog.cpp
             null_value.cpp
+            sha.cpp
             string_heap.cpp
             timestamp.cpp
             time.cpp

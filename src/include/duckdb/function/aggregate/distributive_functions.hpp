@@ -14,6 +14,7 @@
 namespace duckdb {
 
 void gather_finalize(Vector &payloads, Vector &result);
+void gather_sha_finalize(Vector &payloads, Vector &result);
 
 index_t get_bigint_type_size(TypeId return_type);
 void bigint_payload_initialize(data_ptr_t payload, TypeId return_type);
@@ -48,6 +49,14 @@ struct MaxFun {
 
 struct MinFun {
 	static void RegisterFunction(BuiltinFunctions &set);
+};
+
+struct ProcessAggArrayFun {
+    static void RegisterFunction(BuiltinFunctions &set);
+};
+
+struct ProcessAggShaFun {
+    static void RegisterFunction(BuiltinFunctions &set);
 };
 
 struct SumFun {

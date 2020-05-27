@@ -112,6 +112,9 @@ void VectorOperations::FillNullMask(Vector &v) {
 	case TypeId::VARCHAR:
 		templated_fill_nullmask<const char *>(v);
 		break;
+    case TypeId::SHA:
+        templated_fill_nullmask<const unsigned char *>(v);
+        break;
 	default:
 		throw NotImplementedException("Type not implemented for null mask");
 	}

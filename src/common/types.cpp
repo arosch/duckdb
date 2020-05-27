@@ -23,6 +23,9 @@ const SQLType SQLType::TIME = SQLType(SQLTypeId::TIME);
 
 const SQLType SQLType::VARCHAR = SQLType(SQLTypeId::VARCHAR);
 
+const SQLType SQLType::SHA = SQLType(SQLTypeId::SHA);
+const SQLType SQLType::INTEGERARRAY = SQLType(SQLTypeId::INTEGERARRAY);
+
 const vector<SQLType> SQLType::NUMERIC = {
     SQLType::TINYINT, SQLType::SMALLINT, SQLType::INTEGER,           SQLType::BIGINT,
     SQLType::FLOAT,   SQLType::DOUBLE,   SQLType(SQLTypeId::DECIMAL)};
@@ -32,7 +35,7 @@ const vector<SQLType> SQLType::INTEGRAL = {SQLType::TINYINT, SQLType::SMALLINT, 
 const vector<SQLType> SQLType::ALL_TYPES = {
     SQLType::BOOLEAN, SQLType::TINYINT,   SQLType::SMALLINT, SQLType::INTEGER, SQLType::BIGINT,
     SQLType::DATE,    SQLType::TIMESTAMP, SQLType::DOUBLE,   SQLType::FLOAT,   SQLType(SQLTypeId::DECIMAL),
-    SQLType::VARCHAR};
+    SQLType::VARCHAR,   SQLType::SHA};
 
 const TypeId ROW_TYPE = TypeId::BIGINT;
 
@@ -60,6 +63,10 @@ string TypeIdToString(TypeId type) {
 		return "VARCHAR";
 	case TypeId::VARBINARY:
 		return "VARBINARY";
+    case TypeId::SHA:
+        return "SHA";
+    case TypeId::INTEGERARRAY:
+        return "INTEGERARRAY";
 	default:
 		throw ConversionException("Invalid TypeId %d", type);
 	}
@@ -89,6 +96,10 @@ index_t GetTypeIdSize(TypeId type) {
 		return sizeof(void *);
 	case TypeId::VARBINARY:
 		return sizeof(blob_t);
+    case TypeId::SHA:
+        return sizeof(sha_t);
+    case TypeId::INTEGERARRAY:
+        return sizeof(void *);
 	default:
 		throw ConversionException("Invalid TypeId %d", type);
 	}
@@ -114,13 +125,17 @@ SQLType SQLTypeFromInternalType(TypeId type) {
 		return SQLType::VARCHAR;
 	case TypeId::VARBINARY:
 		return SQLType(SQLTypeId::VARBINARY);
+    case TypeId::SHA:
+        return SQLType::SHA;
+    case TypeId::INTEGERARRAY:
+        return SQLType::INTEGERARRAY;
 	default:
 		throw ConversionException("Invalid TypeId %d", type);
 	}
 }
 
 bool TypeIsConstantSize(TypeId type) {
-	return type < TypeId::VARCHAR;
+	return type < TypeId::VARCHAR || type == TypeId::SHA;
 }
 bool TypeIsIntegral(TypeId type) {
 	return type >= TypeId::TINYINT && type <= TypeId::POINTER;
@@ -179,6 +194,10 @@ string SQLTypeIdToString(SQLTypeId id) {
 		return "NULL";
 	case SQLTypeId::ANY:
 		return "ANY";
+    case SQLTypeId::SHA:
+        return "SHA";
+    case SQLTypeId::INTEGERARRAY:
+        return "INTEGERARRAY";
 	default:
 		return "INVALID";
 	}
@@ -232,6 +251,10 @@ TypeId GetInternalType(SQLType type) {
 		return TypeId::VARCHAR;
 	case SQLTypeId::VARBINARY:
 		return TypeId::VARBINARY;
+    case SQLTypeId::SHA:
+        return TypeId::SHA;
+    case SQLTypeId::INTEGERARRAY:
+        return TypeId::INTEGERARRAY;
 	default:
 		throw ConversionException("Invalid SQLType %d", type);
 	}

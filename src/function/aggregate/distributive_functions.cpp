@@ -41,6 +41,8 @@ void BuiltinFunctions::RegisterDistributiveAggregates() {
 	Register<FirstFun>();
 	Register<MaxFun>();
 	Register<MinFun>();
+    Register<ProcessAggArrayFun>();
+    Register<ProcessAggShaFun>();
 	Register<SumFun>();
 	Register<StringAggFun>();
 }

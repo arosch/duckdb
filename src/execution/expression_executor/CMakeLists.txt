@@ -9,6 +9,7 @@ add_library_unity(duckdb_expression_executor
                   execute_cse.cpp
                   execute_function.cpp
                   execute_operator.cpp
-                  execute_parameter.cpp)
+                  execute_parameter.cpp
+                  execute_qualifying.cpp)
 set(ALL_OBJECT_FILES ${ALL_OBJECT_FILES}
                      $<TARGET_OBJECTS:duckdb_expression_executor> PARENT_SCOPE)

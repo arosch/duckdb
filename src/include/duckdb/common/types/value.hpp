@@ -51,6 +51,17 @@ public:
 			throw Exception("String value is not valid UTF8");
 		}
 	}
+	//! Create a SHA value
+	Value(sha_t val) : type(TypeId::SHA), is_null(false) {
+        memcpy(value_.sha, val, SHA_DIGEST_LENGTH);
+	}
+
+    //! Create an INTEGERARRAY value
+    Value(const int32_t *val) : type(TypeId::INTEGERARRAY), is_null(false) {
+        ints_value.resize(*val);
+        memcpy(ints_value.data(), val + 1, (*val) * sizeof(int32_t));
+    }
+
 	Value(const Value &other);
 
 	//! Create the lowest possible value of a given type (numeric only)
@@ -91,6 +102,9 @@ public:
 	//! Create a double Value from a specified value
 	static Value DOUBLE(double value);
 
+	//! Create a sha Value from a specified value
+	static Value SHA(sha_t value);
+
 	template <class T> static Value CreateValue(T value) {
 		throw NotImplementedException("Unimplemented template type for value creation");
 	}
@@ -128,10 +142,13 @@ public:
 		double double_;
 		uintptr_t pointer;
 		uint64_t hash;
+		sha_t sha;
 	} value_;
 
 	//! The value of the object, if it is of a variable size type
 	string str_value;
+
+	vector<int32_t> ints_value;
 
 	//! Serializes a Value to a stand-alone binary blob
 	void Serialize(Serializer &serializer);
@@ -195,5 +212,6 @@ template <> Value Value::CreateValue(const char *value);
 template <> Value Value::CreateValue(string value);
 template <> Value Value::CreateValue(float value);
 template <> Value Value::CreateValue(double value);
+template <> Value Value::CreateValue(sha_t value);
 
 } // namespace duckdb

@@ -38,6 +38,8 @@ string PhysicalOperatorToString(PhysicalOperatorType type) {
 		return "SIMPLE_AGGREGATE";
 	case PhysicalOperatorType::HASH_GROUP_BY:
 		return "HASH_GROUP_BY";
+    case PhysicalOperatorType::PROCESS_AGGREGATE:
+        return "PROCESS_AGGREGATE";
 	case PhysicalOperatorType::SORT_GROUP_BY:
 		return "SORT_GROUP_BY";
 	case PhysicalOperatorType::FILTER:

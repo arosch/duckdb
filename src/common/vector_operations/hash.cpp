@@ -37,6 +37,12 @@ void VectorOperations::Hash(Vector &input, Vector &result) {
 	case TypeId::VARCHAR:
 		templated_unary_loop_process_null<const char *, uint64_t, duckdb::HashOp>(input, result);
 		break;
+    case TypeId::SHA:
+        templated_unary_loop_process_null<sha_t, uint64_t, duckdb::HashOp>(input, result);
+        break;
+    case TypeId ::INTEGERARRAY:
+        templated_unary_loop_process_null<const int32_t *, uint64_t, duckdb::HashOp>(input, result);
+        break;
 	default:
 		throw InvalidTypeException(input.type, "Invalid type for hash");
 	}

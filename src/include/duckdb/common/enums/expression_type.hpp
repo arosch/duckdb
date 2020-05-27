@@ -44,6 +44,8 @@ enum class ExpressionType : uint8_t {
 	COMPARE_LESSTHANOREQUALTO = 29,
 	// greater than equal operator between left and right
 	COMPARE_GREATERTHANOREQUALTO = 30,
+	// greater than qualifying operator between left and right
+    COMPARE_GREATERTHANQUALIFYING = 31,
 	// IN operator [left IN (right1, right2, ...)]
 	COMPARE_IN = 35,
 	// NOT IN operator [left NOT IN (right1, right2, ...)]
@@ -155,6 +157,7 @@ enum class ExpressionClass : uint8_t {
 	SUBQUERY = 12,
 	WINDOW = 13,
 	PARAMETER = 14,
+	QUALIFYING = 15,
 	//===--------------------------------------------------------------------===//
 	// Bound Expressions
 	//===--------------------------------------------------------------------===//
@@ -172,6 +175,7 @@ enum class ExpressionClass : uint8_t {
 	BOUND_REF = 36,
 	BOUND_SUBQUERY = 37,
 	BOUND_WINDOW = 38,
+	BOUND_QUALIFYING = 39,
 	//===--------------------------------------------------------------------===//
 	// Miscellaneous
 	//===--------------------------------------------------------------------===//

@@ -87,6 +87,19 @@ void DataChunk::Move(DataChunk &other) {
 	Destroy();
 }
 
+void DataChunk::Swap(DataChunk &other) {
+    DataChunk temp;
+    auto types = other.GetTypes();
+    temp.InitializeEmpty(types);
+
+    other.Move(temp);
+    Move(other);
+
+    temp.Move(*this);
+
+    temp.Destroy();
+}
+
 void DataChunk::Flatten() {
 	if (!sel_vector) {
 		return;
@@ -235,7 +248,7 @@ void DataChunk::Deserialize(Deserializer &source) {
 	Verify();
 }
 
-void DataChunk::MoveStringsToHeap(StringHeap &heap) {
+void DataChunk::MoveStringsToHeap(StringHeap &other) {
 	for (index_t c = 0; c < column_count; c++) {
 		if (data[c].type == TypeId::VARCHAR) {
 			// move strings of this chunk to the specified heap
@@ -247,9 +260,24 @@ void DataChunk::MoveStringsToHeap(StringHeap &heap) {
 			auto target_strings = (const char **)data[c].data;
 			VectorOperations::ExecType<const char *>(data[c], [&](const char *str, index_t i, index_t k) {
 				if (!data[c].nullmask[i]) {
-					target_strings[i] = heap.AddString(source_strings[i]);
+					target_strings[i] = other.AddString(source_strings[i]);
 				}
 			});
+			//other.MergeHeap(heap);
+		} else if(data[c].type == TypeId::INTEGERARRAY) {
+		    //todo mergeHeap???
+            //other.MergeHeap(heap);
+            /*auto source_ints = (const int32_t **)data[c].data;
+            if (!data[c].owned_data) {
+                data[c].owned_data = unique_ptr<data_t[]>(new data_t[STANDARD_VECTOR_SIZE * sizeof(data_ptr_t)]);
+                data[c].data = data[c].owned_data.get();
+            }
+            auto target_ints = (const int32_t **)data[c].data;
+            VectorOperations::ExecType<const int32_t *>(data[c], [&](const int32_t *str, index_t i, index_t k) {
+                if (!data[c].nullmask[i]) {
+                    target_ints[i] = other.AddIntegerarray(source_ints[i], source_ints[i][0]);
+                }
+            });*/
 		}
 	}
 }

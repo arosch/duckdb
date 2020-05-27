@@ -86,7 +86,7 @@ public:
 	//! Removes a prepared statement from the set of prepared statements in the client context
 	void RemovePreparedStatement(PreparedStatement *statement);
 
-private:
+public:
 	//! Perform aggressive query verification of a SELECT statement. Only called when query_verification_enabled is
 	//! true.
 	string VerifyQuery(string query, unique_ptr<SQLStatement> statement);
@@ -102,6 +102,10 @@ private:
 	//! Internally execute a SQL statement. Caller must hold the context_lock.
 	unique_ptr<QueryResult> ExecuteStatementInternal(string query, unique_ptr<SQLStatement> statement,
 	                                                 bool allow_stream_result);
+
+    //! Benchmark functions to measure the execution of a SQL statement. Caller must hold the context_lock.
+    unique_ptr<QueryResult> BenchmarkStatement(unique_ptr<SQLStatement> statement, const vector<std::pair<string,string>> & params, double ntuples, bool printHeader);
+    unique_ptr<QueryResult> BenchmarkStatementInternal(unique_ptr<SQLStatement> statement, const vector<std::pair<string,string>> & params, double ntuples,  bool printHeader);
 
 private:
 	index_t prepare_count = 0;

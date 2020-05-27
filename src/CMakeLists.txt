@@ -25,6 +25,7 @@ set(DUCKDB_LINK_LIBS
 
 add_library(duckdb SHARED ${ALL_OBJECT_FILES})
 target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})
+target_link_libraries(duckdb ${OPENSSL_LIBRARIES})
 
 add_library(duckdb_static STATIC ${ALL_OBJECT_FILES})
 target_link_libraries(duckdb_static ${DUCKDB_LINK_LIBS})

@@ -53,6 +53,8 @@ BindResult ExpressionBinder::BindExpression(ParsedExpression &expr, index_t dept
 		return BindExpression((FunctionExpression &)expr, depth);
 	case ExpressionClass::OPERATOR:
 		return BindExpression((OperatorExpression &)expr, depth);
+    case ExpressionClass::QUALIFYING:
+	    return BindExpression((QualifyingExpression &)expr, depth);
 	case ExpressionClass::SUBQUERY:
 		return BindExpression((SubqueryExpression &)expr, depth);
 	default:

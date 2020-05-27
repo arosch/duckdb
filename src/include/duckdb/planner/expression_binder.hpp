@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <duckdb/parser/expression/qualifying_expression.hpp>
 #include "duckdb/common/exception.hpp"
 #include "duckdb/parser/parsed_expression.hpp"
 #include "duckdb/parser/expression/bound_expression.hpp"
@@ -75,6 +76,7 @@ protected:
 	BindResult BindExpression(FunctionExpression &expr, index_t depth);
 	BindResult BindExpression(OperatorExpression &expr, index_t depth);
 	BindResult BindExpression(ParameterExpression &expr, index_t depth);
+	BindResult BindExpression(QualifyingExpression &expr, index_t depth);
 	BindResult BindExpression(StarExpression &expr, index_t depth);
 	BindResult BindExpression(SubqueryExpression &expr, index_t depth);
 

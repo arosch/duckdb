@@ -199,6 +199,12 @@ Value Vector::GetValue(uint64_t index) const {
 		assert(str);
 		return Value(string(str));
 	}
+	case TypeId::SHA:
+	    return Value(((sha_t *) data)[entry]);
+    case TypeId::INTEGERARRAY: {
+        int32_t *ints = ((int32_t **) data)[entry];
+        return Value(ints);
+    }
 	default:
 		throw NotImplementedException("Unimplemented type for conversion");
 	}
@@ -249,21 +255,46 @@ void Vector::Copy(Vector &other, uint64_t offset) {
 
 	other.nullmask.reset();
 	if (!TypeIsConstantSize(type)) {
-		assert(type == TypeId::VARCHAR);
-		other.count = count - offset;
-		auto source = (const char **)data;
-		auto target = (const char **)other.data;
-		VectorOperations::Exec(
-		    *this,
-		    [&](uint64_t i, uint64_t k) {
-			    if (nullmask[i]) {
-				    other.nullmask[k - offset] = true;
-				    target[k - offset] = nullptr;
-			    } else {
-				    target[k - offset] = other.string_heap.AddString(source[i]);
-			    }
-		    },
-		    offset);
+	    switch(type) {
+            case TypeId::VARCHAR: {
+                other.count = count - offset;
+                auto source = (const char **) data;
+                auto target = (const char **) other.data;
+                VectorOperations::Exec(
+                        *this,
+                        [&](uint64_t i, uint64_t k) {
+                            if (nullmask[i]) {
+                                other.nullmask[k - offset] = true;
+                                target[k - offset] = nullptr;
+                            } else {
+                                target[k - offset] = other.string_heap.AddString(source[i]);
+                            }
+                        },
+                        offset);
+                break;
+            }
+            case TypeId::INTEGERARRAY: {
+                other.count = count - offset;
+                auto source = (const int32_t **) data;
+                auto target = (const int32_t **) other.data;
+                VectorOperations::Exec(
+                        *this,
+                        [&](uint64_t i, uint64_t k) {
+                            if (nullmask[i]) {
+                                other.nullmask[k - offset] = true;
+                                target[k - offset] = nullptr;
+                            } else {
+                                const int32_t num = source[i][0];
+                                target[k - offset] = other.string_heap.AddInts(source[i] + 1, num);
+                            }
+                        },
+                        offset);
+                break;
+            }
+            default:
+                throw NotImplementedException("Unimplemented type for non-const copy");
+        }
+
 	} else {
 		VectorOperations::Copy(*this, other, offset);
 	}

@@ -127,6 +127,9 @@ void ExpressionExecutor::Execute(Expression &expr, Vector &result) {
 	case ExpressionClass::BOUND_OPERATOR:
 		Execute((BoundOperatorExpression &)expr, result);
 		break;
+    case ExpressionClass::BOUND_QUALIFYING:
+            Execute((BoundQualifyingExpression &)expr, result);
+            break;
 	default:
 		assert(expr.expression_class == ExpressionClass::BOUND_PARAMETER);
 		Execute((BoundParameterExpression &)expr, result);

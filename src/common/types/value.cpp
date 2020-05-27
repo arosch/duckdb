@@ -1,3 +1,4 @@
+#include <duckdb/common/types/sha.hpp>
 #include "duckdb/common/types/value.hpp"
 
 #include "duckdb/common/exception.hpp"
@@ -176,6 +177,13 @@ Value Value::TIMESTAMP(int32_t year, int32_t month, int32_t day, int32_t hour, i
 	return Value::TIMESTAMP(Date::FromDate(year, month, day), Time::FromTime(hour, min, sec, msec));
 }
 
+Value Value::SHA(sha_t value) {
+    Value result(TypeId::SHA);
+    memcpy(result.value_.sha, value, SHA_DIGEST_LENGTH);
+    result.is_null = false;
+    return result;
+}
+
 template <> Value Value::CreateValue(int8_t value) {
 	return Value::TINYINT(value);
 }
@@ -206,6 +214,10 @@ template <> Value Value::CreateValue(float value) {
 
 template <> Value Value::CreateValue(double value) {
 	return Value::DOUBLE(value);
+}
+
+template <> Value Value::CreateValue(sha_t value) {
+    return Value::SHA(value);
 }
 
 Value Value::Numeric(TypeId type, int64_t value) {
@@ -290,6 +302,19 @@ string Value::ToString(SQLType sql_type) const {
 		return Timestamp::ToString(value_.bigint);
 	case SQLTypeId::VARCHAR:
 		return str_value;
+    case SQLTypeId::SHA:
+	    return Sha::ToString(value_.sha);
+    case SQLTypeId::INTEGERARRAY: {
+        std::stringstream ss;
+        const char * delimiter = "";
+        ss << "[ ";
+        for (const auto &i : ints_value) {
+            ss << delimiter << i;
+            delimiter = ", ";
+        }
+        ss << " ]";
+        return ss.str();
+    }
 	default:
 		throw NotImplementedException("Unimplemented type for printing");
 	}

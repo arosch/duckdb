@@ -4,6 +4,8 @@
 // operations == != >= <= > <
 //===--------------------------------------------------------------------===//
 
+#include <duckdb/common/printer.hpp>
+#include <duckdb/execution/operator/filter/physical_qualifying_filter.hpp>
 #include "duckdb/common/operator/comparison_operators.hpp"
 
 #include "duckdb/common/vector_operations/binary_loops.hpp"

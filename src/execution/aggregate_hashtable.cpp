@@ -6,6 +6,7 @@
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/planner/expression/bound_aggregate_expression.hpp"
 #include "duckdb/catalog/catalog_entry/aggregate_function_catalog_entry.hpp"
+#include "../../third_party/perfevent/PerfEvent.hpp"
 
 #include <cmath>
 #include <map>
@@ -107,11 +108,13 @@ void SuperLargeHashTable::Resize(index_t size) {
 				break;
 			}
 			addresses.count = entry;
+
 			// fetch the group columns
 			for (index_t i = 0; i < groups.column_count; i++) {
 				auto &column = groups.data[i];
 				column.count = entry;
-				VectorOperations::Gather::Set(addresses, column);
+
+                VectorOperations::Gather::Set(addresses, column);
 				VectorOperations::AddInPlace(addresses, GetTypeIdSize(column.type));
 			}
 
@@ -154,9 +157,9 @@ void SuperLargeHashTable::AddChunk(DataChunk &groups, DataChunk &payload) {
 	if (groups.size() == 0) {
 		return;
 	}
-
 	StaticPointerVector addresses;
 	StaticVector<bool> new_group_dummy;
+
 
 	FindOrCreateGroups(groups, addresses, new_group_dummy);
 
@@ -220,6 +223,7 @@ void SuperLargeHashTable::AddChunk(DataChunk &groups, DataChunk &payload) {
 		else {
 			auto input_count = max(size_t(1), aggr->children.size());
 			aggr->function.update(&payload.data[payload_idx], input_count, addresses);
+			string_heap.MergeHeap(addresses.string_heap);
 			payload_idx += input_count;
 		}
 
@@ -325,6 +329,47 @@ static void CompareGroupVector(data_ptr_t group_pointers[], Vector &groups, sel_
 		sel_count = current_count;
 		break;
 	}
+	case TypeId::SHA: {
+        // compare group vector for sha_t
+        auto data = (const sha_t *)groups.data;
+        index_t current_count = 0;
+        for (index_t i = 0; i < sel_count; i++) {
+            index_t index = sel_vector[i];
+            auto entry = group_pointers[index];
+            if (std::memcmp(data[index], *((const sha_t *)entry), SHA_DIGEST_LENGTH) == 0) {
+                // match, continue to next group (if any)
+                sel_vector[current_count++] = index;
+            } else {
+                // no match, move to next group
+                no_match_vector[no_match_count++] = index;
+            }
+            group_pointers[index] += sizeof(const sha_t);
+        }
+        sel_count = current_count;
+        break;
+	}
+    case TypeId::INTEGERARRAY: {
+        auto data = (const int32_t **)groups.data;
+        index_t current_count = 0;
+        for (index_t i = 0; i < sel_count; i++) {
+            index_t index = sel_vector[i];
+            auto entry = group_pointers[index];
+            const int32_t * lhs = data[index];
+            const int32_t * rhs = *((const int32_t **)entry);
+            // check for valid length
+            assert(*lhs<10000);
+            if (*lhs == *rhs && std::memcmp(lhs + 1, rhs +1, *lhs * sizeof(int32_t)) == 0) {
+                // match, continue to next group (if any)
+                sel_vector[current_count++] = index;
+            } else {
+                // no match, move to next group
+                no_match_vector[no_match_count++] = index;
+            }
+            group_pointers[index] += sizeof(const int32_t *);
+        }
+        sel_count = current_count;
+        break;
+    }
 	default:
 		throw Exception("Unsupported type for group vector");
 	}
@@ -357,7 +402,6 @@ void SuperLargeHashTable::FindOrCreateGroups(DataChunk &groups, Vector &addresse
 	if (entries > capacity / 2 || capacity - entries <= STANDARD_VECTOR_SIZE) {
 		Resize(capacity * 2);
 	}
-
 	// for each group, fill in the NULL value
 	for (index_t group_idx = 0; group_idx < groups.column_count; group_idx++) {
 		VectorOperations::FillNullMask(groups.data[group_idx]);
@@ -388,7 +432,6 @@ void SuperLargeHashTable::FindOrCreateGroups(DataChunk &groups, Vector &addresse
 
 	data_ptr_t group_pointers[STANDARD_VECTOR_SIZE];
 	Vector pointers(TypeId::POINTER, (data_ptr_t)group_pointers);
-
 	while (sel_count > 0) {
 		index_t current_count = 0;
 		index_t empty_count = 0;
@@ -484,7 +527,8 @@ index_t SuperLargeHashTable::Scan(index_t &scan_position, DataChunk &groups, Dat
 	for (index_t i = 0; i < groups.column_count; i++) {
 		auto &column = groups.data[i];
 		column.count = entry;
-		VectorOperations::Gather::Set(addresses, column);
+
+        VectorOperations::Gather::Set(addresses, column);
 		VectorOperations::AddInPlace(addresses, GetTypeIdSize(column.type));
 	}
 
@@ -493,7 +537,6 @@ index_t SuperLargeHashTable::Scan(index_t &scan_position, DataChunk &groups, Dat
 		target.count = entry;
 		auto aggr = aggregates[i];
 		aggr->function.finalize(addresses, target);
-
 		VectorOperations::AddInPlace(addresses, aggr->function.state_size(target.type));
 	}
 	scan_position = ptr - data;

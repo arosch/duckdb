@@ -39,6 +39,9 @@ void SetNullValue(data_ptr_t ptr, TypeId type) {
 	case TypeId::VARCHAR:
 		*((const char **)ptr) = NullValue<const char *>();
 		break;
+    case TypeId::SHA:
+        *((const unsigned char **)ptr) = NullValue<const unsigned char *>();
+        break;
 	default:
 		throw InvalidTypeException(type, "Unsupported type for SetNullValue!");
 	}

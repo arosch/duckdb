@@ -71,6 +71,13 @@ void ExpressionIterator::EnumerateChildren(Expression &expr,
 		}
 		break;
 	}
+    case ExpressionClass::BOUND_QUALIFYING: {
+        auto &comp_expr = (BoundQualifyingExpression &)expr;
+        comp_expr.left = callback(move(comp_expr.left));
+        comp_expr.right = callback(move(comp_expr.right));
+        comp_expr.toBeQualfied = callback(move(comp_expr.toBeQualfied));
+        break;
+    }
 	case ExpressionClass::BOUND_SUBQUERY: {
 		auto &subquery_expr = (BoundSubqueryExpression &)expr;
 		if (subquery_expr.child) {

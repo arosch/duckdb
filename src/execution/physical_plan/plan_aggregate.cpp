@@ -1,4 +1,6 @@
+#include "duckdb/execution/operator/aggregate/physical_array_aggregate.hpp"
 #include "duckdb/execution/operator/aggregate/physical_hash_aggregate.hpp"
+#include "duckdb/execution/operator/aggregate/physical_sha_aggregate.hpp"
 #include "duckdb/execution/operator/aggregate/physical_simple_aggregate.hpp"
 #include "duckdb/execution/physical_plan_generator.hpp"
 #include "duckdb/catalog/catalog_entry/aggregate_function_catalog_entry.hpp"
@@ -12,6 +14,22 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 	assert(op.children.size() == 1);
 
 	auto plan = CreatePlan(*op.children[0]);
+
+	for(const auto& expr: op.expressions){
+	    if(expr->IsAggregate()){
+	        auto e = (BoundAggregateExpression*) expr.get();
+	        if(e->function.name == "process_agg_sha") {
+                auto groupby = make_unique<PhysicalShaAggregate>(op.types, move(op.expressions), move(op.groups));
+                groupby->children.push_back(move(plan));
+                return move(groupby);
+            } else if(e->function.name == "process_agg_array"){
+                auto groupby = make_unique<PhysicalArrayAggregate>(op.types, move(op.expressions), move(op.groups));
+                groupby->children.push_back(move(plan));
+                return move(groupby);
+            }
+	    }
+	}
+
 	if (op.groups.size() == 0) {
 		// no groups, check if we can use a simple aggregation
 		// special case: aggregate entire columns together

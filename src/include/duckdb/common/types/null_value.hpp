@@ -31,6 +31,18 @@ template <> inline char *NullValue() {
 	return (char *)NullValue<const char *>();
 }
 
+constexpr const unsigned char ustr_nil[1] = {'0'};
+
+template <> inline const unsigned char *NullValue() {
+    return ustr_nil;
+}
+
+template <> inline unsigned char *NullValue() {
+    return (unsigned char *)NullValue<const unsigned char *>();
+}
+
+
+
 template <class T> inline bool IsNullValue(T value) {
 	return value == NullValue<T>();
 }
@@ -42,6 +54,20 @@ template <> inline bool IsNullValue(const char *value) {
 
 template <> inline bool IsNullValue(char *value) {
 	return IsNullValue<const char *>(value);
+}
+
+template <> inline bool IsNullValue(const int32_t *value) {
+    return *value == 0;
+}
+
+template <> inline bool IsNullValue(int32_t *value) {
+    return IsNullValue<const int32_t *>(value);
+}
+
+inline bool IsNullValueSHA(const sha_t value) {
+    sha_t nulls;
+    memset(nulls, ustr_nil[0], sizeof(sha_t));
+    return  memcmp(value, nulls, sizeof(sha_t)) == 0 ;
 }
 
 //! Compares a specific memory region against the types NULL value

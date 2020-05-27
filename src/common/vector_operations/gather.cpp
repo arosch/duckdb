@@ -3,6 +3,7 @@
 // Description: This file contains the implementation of the gather operators
 //===--------------------------------------------------------------------===//
 
+#include <iostream>
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/operator/constant_operators.hpp"
 #include "duckdb/common/types/null_value.hpp"
@@ -34,6 +35,29 @@ struct GatherLoopSetNull {
 			});
 		}
 	}
+
+    template <class T, class OP> static void OperationSHA(Vector &src, Vector &result, index_t offset) {
+        (void)offset;
+        auto source = (T **)src.data;
+        auto ldata = (T *)result.data;
+        if (result.sel_vector) {
+            VectorOperations::Exec(src, [&](index_t i, index_t k) {
+                if (IsNullValueSHA(source[i][0])) {
+                    result.nullmask.set(result.sel_vector[k]);
+                } else {
+                    memcpy(ldata[result.sel_vector[k]], OP::Operation(source[i][0], ldata[i]), SHA_DIGEST_LENGTH);
+                }
+            });
+        } else {
+            VectorOperations::Exec(src, [&](index_t i, index_t k) {
+                if (IsNullValueSHA(source[i][0])) {
+                    result.nullmask.set(k);
+                } else {
+                    memcpy(ldata[i], OP::Operation(source[i][0], ldata[i]), SHA_DIGEST_LENGTH);
+                }
+            });
+        }
+    }
 };
 
 struct GatherLoopIgnoreNull {
@@ -50,41 +74,62 @@ struct GatherLoopIgnoreNull {
 			                       [&](index_t i, index_t k) { ldata[k] = OP::Operation(source[i][0], ldata[i]); });
 		}
 	}
+
+    template <class T, class OP> static void OperationSHA(Vector &src, Vector &result, index_t offset) {
+        (void)offset;
+        auto source = (T **)src.data;
+        auto ldata = (sha_t *)result.data;
+        if (result.sel_vector) {
+            VectorOperations::Exec(src, [&](index_t i, index_t k) {
+                memcpy(ldata[result.sel_vector[k]], OP::Operation(source[i][0], ldata[i]), SHA_DIGEST_LENGTH);
+            });
+        } else {
+            VectorOperations::Exec(src, [&](index_t i, index_t k) {
+                memcpy(ldata[i], OP::Operation(source[i][0], ldata[i]), SHA_DIGEST_LENGTH);
+            });
+        }
+    }
 };
 
 template <class LOOP, class OP> static void generic_gather_loop(Vector &source, Vector &dest, index_t offset = 0) {
-	if (source.type != TypeId::POINTER) {
-		throw InvalidTypeException(source.type, "Cannot gather from non-pointer type!");
-	}
-	switch (dest.type) {
-	case TypeId::BOOLEAN:
-	case TypeId::TINYINT:
-		LOOP::template Operation<int8_t, OP>(source, dest, offset);
-		break;
-	case TypeId::SMALLINT:
-		LOOP::template Operation<int16_t, OP>(source, dest, offset);
-		break;
-	case TypeId::INTEGER:
-		LOOP::template Operation<int32_t, OP>(source, dest, offset);
-		break;
-	case TypeId::BIGINT:
-		LOOP::template Operation<int64_t, OP>(source, dest, offset);
-		break;
-	case TypeId::FLOAT:
-		LOOP::template Operation<float, OP>(source, dest, offset);
-		break;
-	case TypeId::DOUBLE:
-		LOOP::template Operation<double, OP>(source, dest, offset);
-		break;
-	case TypeId::POINTER:
-		LOOP::template Operation<uint64_t, OP>(source, dest, offset);
-		break;
-	case TypeId::VARCHAR:
-		LOOP::template Operation<char *, OP>(source, dest, offset);
-		break;
-	default:
-		throw NotImplementedException("Unimplemented type for gather");
-	}
+    if (source.type != TypeId::POINTER) {
+        throw InvalidTypeException(source.type, "Cannot gather from non-pointer type!");
+    }
+    switch (dest.type) {
+        case TypeId::BOOLEAN:
+        case TypeId::TINYINT:
+            LOOP::template Operation<int8_t, OP>(source, dest, offset);
+            break;
+        case TypeId::SMALLINT:
+            LOOP::template Operation<int16_t, OP>(source, dest, offset);
+            break;
+        case TypeId::INTEGER:
+            LOOP::template Operation<int32_t, OP>(source, dest, offset);
+            break;
+        case TypeId::BIGINT:
+            LOOP::template Operation<int64_t, OP>(source, dest, offset);
+            break;
+        case TypeId::FLOAT:
+            LOOP::template Operation<float, OP>(source, dest, offset);
+            break;
+        case TypeId::DOUBLE:
+            LOOP::template Operation<double, OP>(source, dest, offset);
+            break;
+        case TypeId::POINTER:
+            LOOP::template Operation<uint64_t, OP>(source, dest, offset);
+            break;
+        case TypeId::VARCHAR:
+            LOOP::template Operation<char *, OP>(source, dest, offset);
+            break;
+        case TypeId::SHA:
+            LOOP::template OperationSHA<sha_t, OP>(source, dest, offset);
+            break;
+        case TypeId::INTEGERARRAY:
+            LOOP::template Operation<int32_t *, OP>(source, dest, offset);
+            break;
+        default:
+            throw NotImplementedException("Unimplemented type for gather");
+    }
 }
 
 void VectorOperations::Gather::Set(Vector &source, Vector &dest, bool set_null, index_t offset) {
@@ -108,6 +153,10 @@ struct GatherLoopAppendNull {
 			result.count++;
 		});
 	}
+
+    template <class T, class OP> static void OperationSHA(Vector &src, Vector &result, index_t offset) {
+        throw NotImplementedException("Unimplemented Operation for SHA");
+    }
 };
 
 struct GatherLoopAppend {
@@ -118,6 +167,10 @@ struct GatherLoopAppend {
 		VectorOperations::Exec(src,
 		                       [&](index_t i, index_t k) { ldata[result.count++] = *((T *)(source[i] + offset)); });
 	}
+
+    template <class T, class OP> static void OperationSHA(Vector &src, Vector &result, index_t offset) {
+        throw NotImplementedException("Unimplemented Operation for SHA");
+    }
 };
 
 void VectorOperations::Gather::Append(Vector &source, Vector &dest, index_t offset, bool set_null) {

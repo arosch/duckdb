@@ -37,7 +37,17 @@ public:
 	const char *AddString(const char *data);
 	//! Add a string to the string heap, returns a pointer to the string
 	const char *AddString(const string &data);
-	//! Add all strings from a different string heap to this string heap
+
+	//! Add already serialized ints to the string heap, returns a pointer to the serialized data
+    int32_t *AddIntegerarray(const int32_t *data, index_t len);
+    //! Add ints to the string heap, returns a pointer to the serialized data
+    int32_t *AddInts(const int32_t *data, int32_t num);
+    //! Add ints to the existing serialized_data on the string heap, returns a pointer to the new serialized data
+    int32_t *AddInts(const int32_t *serialized_data, const int32_t *data, int32_t num);
+
+    void Resize(size_t size);
+
+    //! Add all strings from a different string heap to this string heap
 	void MergeHeap(StringHeap &heap);
 
 private:

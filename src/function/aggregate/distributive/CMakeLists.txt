@@ -1,5 +1,7 @@
 add_library_unity(duckdb_aggr_distr
 				OBJECT
+				process_agg_array.cpp
+				process_agg_sha.cpp
 				count.cpp
 				first.cpp
 				max.cpp

@@ -75,6 +75,9 @@ public:
 	//! Move the data of this chunk to the other chunk
 	void Move(DataChunk &other);
 
+	//! Swap the data of this chunk with the data of other chunk
+    void Swap(DataChunk &other);
+
 	//! Merges the vector new_vector with an existing selection vector (i.e.
 	//! result[i] = current_vector[new_vector[i]];)
 	static void MergeSelVector(sel_t *current_vector, sel_t *new_vector, sel_t *result, index_t new_count);
@@ -119,6 +122,11 @@ public:
 	}
 
 	DataChunk(const DataChunk &) = delete;
+	//DataChunk(DataChunk &&) = default;
+	//! Required for reallocation within vectors
+    DataChunk(DataChunk && other) {
+        other.Move(*this);
+    }
 
 	//! Verify that the DataChunk is in a consistent, not corrupt state. DEBUG
 	//! FUNCTION ONLY!

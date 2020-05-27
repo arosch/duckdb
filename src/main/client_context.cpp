@@ -1,3 +1,4 @@
+#include <iostream>
 #include "duckdb/main/client_context.hpp"
 
 #include "duckdb/common/serializer/buffered_deserializer.hpp"
@@ -18,6 +19,7 @@
 #include "duckdb/transaction/transaction_manager.hpp"
 #include "duckdb/transaction/transaction.hpp"
 #include "duckdb/parser/statement/deallocate_statement.hpp"
+#include "../../third_party/perfevent/PerfEvent.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -154,6 +156,7 @@ unique_ptr<QueryResult> ClientContext::ExecuteStatementInternal(string query, un
 	assert(!log_query_string);
 
 	auto plan = move(planner.plan);
+
 	// extract the result column names from the plan
 	auto names = planner.names;
 	auto sql_types = planner.sql_types;
@@ -178,7 +181,8 @@ unique_ptr<QueryResult> ClientContext::ExecuteStatementInternal(string query, un
 
 	profiler.StartPhase("physical_planner");
 	// now convert logical query plan into a physical query plan
-	PhysicalPlanGenerator physical_planner(*this);
+
+    PhysicalPlanGenerator physical_planner(*this);
 	auto physical_plan = physical_planner.CreatePlan(move(plan));
 	profiler.EndPhase();
 
@@ -194,7 +198,10 @@ unique_ptr<QueryResult> ClientContext::ExecuteStatementInternal(string query, un
 		// return a StreamQueryResult so the client can call Fetch() on it and stream the result
 		return make_unique<StreamQueryResult>(statement_type, *this, sql_types, types, names);
 	}
-	// create a materialized result by continuously fetching
+
+	//execution_context.physical_plan->Print();
+
+    // create a materialized result by continuously fetching
 	auto result = make_unique<MaterializedQueryResult>(statement_type, sql_types, types, names);
 	while (true) {
 		auto chunk = FetchInternal();
@@ -203,7 +210,75 @@ unique_ptr<QueryResult> ClientContext::ExecuteStatementInternal(string query, un
 		}
 		result->collection.Append(*chunk);
 	}
+
 	return move(result);
+}
+
+unique_ptr<QueryResult> ClientContext::BenchmarkStatementInternal(unique_ptr<SQLStatement> statement, const vector<std::pair<string,string>> & params, const double ntuples, const bool printHeader) {
+    if (ActiveTransaction().is_invalidated && statement->type != StatementType::TRANSACTION) {
+        throw Exception("Current transaction is aborted (please ROLLBACK)");
+    }
+    StatementType statement_type = statement->type;
+
+    profiler.StartPhase("planner");
+    Planner planner(*this);
+    planner.CreatePlan(move(statement));
+    if (!planner.plan) {
+        // return an empty result
+        return make_unique<MaterializedQueryResult>(statement_type);
+    }
+    profiler.EndPhase();
+
+    auto plan = move(planner.plan);
+
+    // extract the result column names from the plan
+    auto names = planner.names;
+    auto sql_types = planner.sql_types;
+
+#ifdef DEBUG
+    if (enable_optimizer) {
+#endif
+        profiler.StartPhase("optimizer");
+        Optimizer optimizer(planner.binder, *this);
+        plan = optimizer.Optimize(move(plan));
+        assert(plan);
+        profiler.EndPhase();
+#ifdef DEBUG
+    }
+#endif
+
+    profiler.StartPhase("physical_planner");
+    // now convert logical query plan into a physical query plan
+
+    PhysicalPlanGenerator physical_planner(*this);
+    auto physical_plan = physical_planner.CreatePlan(move(plan));
+    profiler.EndPhase();
+
+    // store the physical plan in the context for calls to Fetch()
+    execution_context.physical_plan = move(physical_plan);
+    execution_context.physical_state = execution_context.physical_plan->GetOperatorState();
+
+    auto types = execution_context.physical_plan->GetTypes();
+    assert(types.size() == sql_types.size());
+
+    BenchmarkParameters bparams;
+    for(const auto& p:params)
+        bparams.setParam(p.first,p.second);
+    bparams.setParam("tuples",ntuples);
+
+    PerfEventBlock e(ntuples,bparams,printHeader);
+
+    // create a materialized result by continuously fetching
+    auto result = make_unique<MaterializedQueryResult>(statement_type, sql_types, types, names);
+    while (true) {
+        auto chunk = FetchInternal();
+        if (chunk->size() == 0) {
+            break;
+        }
+        result->collection.Append(*chunk);
+    }
+
+    return move(result);
 }
 
 static string CanExecuteStatementInReadOnlyMode(SQLStatement &stmt) {
@@ -396,6 +471,74 @@ unique_ptr<QueryResult> ClientContext::ExecuteStatementsInternal(string query,
 		}
 	}
 	return result;
+}
+
+unique_ptr<QueryResult> ClientContext::BenchmarkStatement(unique_ptr<SQLStatement> statement, const vector<std::pair<string,string>> & params, const double ntuples, const bool printHeader) {
+    // now we have a list of statements
+    // iterate over them and execute them one by one
+    unique_ptr<QueryResult> result, current_result;
+    QueryResult *last_result = nullptr;
+        if (db.access_mode == AccessMode::READ_ONLY) {
+            // if the database is opened in read-only mode, check if we can execute this statement
+            string error = CanExecuteStatementInReadOnlyMode(*statement);
+            if (!error.empty()) {
+                return make_unique<MaterializedQueryResult>(error);
+            }
+        }
+        // check if we are on AutoCommit. In this case we should start a transaction.
+        if (transaction.IsAutoCommit()) {
+            transaction.BeginTransaction();
+        }
+        ActiveTransaction().active_query = db.transaction_manager->GetQueryNumber();
+        if (statement->type == StatementType::SELECT && query_verification_enabled) {
+            // query verification is enabled:
+            // create a copy of the statement and verify the original statement
+            auto copied_statement = ((SelectStatement &)*statement).Copy();
+            string error = VerifyQuery("", move(statement));
+            if (!error.empty()) {
+                // query failed: abort now
+                FinalizeQuery(false);
+                // error in verifying query
+                return make_unique<MaterializedQueryResult>(error);
+            }
+            statement = move(copied_statement);
+        }
+        // start the profiler
+        profiler.StartQuery("");
+        try {
+            // run the actual query
+            current_result = BenchmarkStatementInternal(move(statement), params, ntuples, printHeader);
+
+        } catch (ParserException &ex) {
+            // parser exceptions do not invalidate the current transaction
+            current_result = make_unique<MaterializedQueryResult>(ex.what());
+        } catch (BinderException &ex) {
+            // binder exceptions also do not invalidate the current transaction
+            current_result = make_unique<MaterializedQueryResult>(ex.what());
+        } catch (CatalogException &ex) {
+            // catalog exceptions also do not invalidate the current transaction
+            current_result = make_unique<MaterializedQueryResult>(ex.what());
+        } catch (std::exception &ex) {
+            // other types of exceptions do invalidate the current transaction
+            if (transaction.HasActiveTransaction()) {
+                ActiveTransaction().is_invalidated = true;
+            }
+            current_result = make_unique<MaterializedQueryResult>(ex.what());
+        }
+        if (!current_result->success) {
+            // initial failures should always be reported as MaterializedResult
+            assert(current_result->type != QueryResultType::STREAM_RESULT);
+            // query failed: abort now
+            FinalizeQuery(false);
+            return current_result;
+        }
+        // query succeeded
+        string error = FinalizeQuery(true);
+        if (!error.empty()) {
+            // failure in committing transaction
+            return make_unique<MaterializedQueryResult>(error);
+        }
+    return result;
 }
 
 unique_ptr<QueryResult> ClientContext::Query(string query, bool allow_stream_result) {

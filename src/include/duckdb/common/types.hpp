@@ -10,6 +10,7 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/constants.hpp"
+#include "duckdb/common/types/sha.hpp"
 
 #include <type_traits>
 
@@ -47,7 +48,9 @@ enum class TypeId : uint8_t {
 	FLOAT = 8,     /* float32_t */
 	DOUBLE = 9,    /* float64_t */
 	VARCHAR = 10,  /* char*, representing a null-terminated UTF-8 string */
-	VARBINARY = 11 /* blob_t, representing arbitrary bytes */
+	VARBINARY = 11, /* blob_t, representing arbitrary bytes */
+	SHA = 12,
+	INTEGERARRAY = 13
 };
 
 //===--------------------------------------------------------------------===//
@@ -72,7 +75,9 @@ enum class SQLTypeId : uint8_t {
 	DECIMAL = 20,
 	CHAR = 21,
 	VARCHAR = 22,
-	VARBINARY = 23
+	VARBINARY = 23,
+    SHA = 24,
+    INTEGERARRAY = 25
 };
 
 struct SQLType {
@@ -109,6 +114,9 @@ public:
 	static const SQLType TIMESTAMP;
 	static const SQLType TIME;
 	static const SQLType VARCHAR;
+
+    static const SQLType SHA;
+    static const SQLType INTEGERARRAY;
 
 	//! A list of all NUMERIC types (integral and floating point types)
 	static const vector<SQLType> NUMERIC;
@@ -149,7 +157,9 @@ template <class T> TypeId GetTypeId() {
 	} else if (std::is_same<T, double>()) {
 		return TypeId::DOUBLE;
 	} else if (std::is_same<T, const char *>() || std::is_same<T, char *>()) {
-		return TypeId::VARCHAR;
+        return TypeId::VARCHAR;
+    } else if (std::is_same<T, const unsigned char *>() || std::is_same<T, unsigned char *>()) {
+            return TypeId::SHA;
 	} else {
 		return TypeId::INVALID;
 	}

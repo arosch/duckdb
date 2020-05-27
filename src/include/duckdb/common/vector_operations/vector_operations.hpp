@@ -11,6 +11,7 @@
 #include "duckdb/common/types/vector.hpp"
 
 #include <functional>
+#include <duckdb/execution/operator/filter/physical_qualifying_filter.hpp>
 
 namespace duckdb {
 

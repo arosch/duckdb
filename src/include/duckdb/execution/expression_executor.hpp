@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <duckdb/planner/expression/list.hpp>
 #include "duckdb/common/common.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
 #include "duckdb/common/unordered_map.hpp"
@@ -39,7 +40,7 @@ public:
 	//! column references and determines the output cardinality
 	DataChunk *chunk;
 
-protected:
+public:
 	void Execute(Expression &expr, Vector &result);
 
 	void Execute(BoundReferenceExpression &expr, Vector &result);
@@ -52,6 +53,7 @@ protected:
 	void Execute(BoundFunctionExpression &expr, Vector &result);
 	void Execute(BoundOperatorExpression &expr, Vector &result);
 	void Execute(BoundParameterExpression &expr, Vector &result);
+    void Execute(BoundQualifyingExpression &expr, Vector &result);
 
 	//! Execute the abstract expression, and "logical AND" the result together
 	//! with result
